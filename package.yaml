@@ -1,0 +1,42 @@
+name:                tuple-sop
+version:             0.1.0.0
+github:              "Ferdinand-vW/tuple-sop"
+license:             BSD3
+author:              "Ferdinand van Walree"
+maintainer:          "ferdinandvwalree@gmail.com"
+copyright:           "2018 Ferdinand van Walree"
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+# Metadata used when publishing your package
+synopsis:            Exports various functions that manipulate n-ary tuples. This library uses generics-sop
+                     to create a generic representation of n-ary product types. To regain type inference, the exported functions
+                     work only on tuples with at most 10 components.
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+# description:         Please see the README on Github at <https://github.com/githubuser/tuple-sop#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- generics-sop
+
+library:
+  source-dirs: src
+  exposed-modules: 
+    - Data.Tuple.Ops
+
+tests:
+  tuple-sop-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - tuple-sop

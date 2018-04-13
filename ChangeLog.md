@@ -1,3 +1,5 @@
-# Changelog for tuple-unified
+# Changelog for tuple-sop
 
-## Unreleased changes
+## 0.1.0.0 -- 2018-13-04
+
+* Initial release

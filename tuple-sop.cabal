@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: febf05db5665fa5b592cabd36bf5bb4144e8b7d62cc6c5a2c3602cc4be35275d
+-- hash: b998f09418c853e1d134628dc31b5fdcd245d1090811aa276d89cd874053d36b
 
 name:           tuple-sop
 version:        0.1.0.0
@@ -14,7 +14,7 @@ bug-reports:    https://github.com/Ferdinand-vW/tuple-sop/issues
 author:         Ferdinand van Walree
 maintainer:     ferdinandvwalree@gmail.com
 copyright:      2018 Ferdinand van Walree
-license:        BSD3
+license:        GPL-3
 license-file:   LICENSE
 build-type:     Simple
 cabal-version:  >= 1.10

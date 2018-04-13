@@ -1,7 +1,7 @@
 name:                tuple-sop
 version:             0.1.0.0
 github:              "Ferdinand-vW/tuple-sop"
-license:             BSD3
+license:             GPL-3
 author:              "Ferdinand van Walree"
 maintainer:          "ferdinandvwalree@gmail.com"
 copyright:           "2018 Ferdinand van Walree"

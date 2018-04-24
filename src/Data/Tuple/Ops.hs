@@ -544,7 +544,7 @@ type family Lit (n :: Nat) :: Nat' where
 
 type family IsProductType' s where
   IsProductType' (SOP I '[xs]) = 'True
-  IsProductType' _ = False
+  IsProductType' s = False
 
 type family AreProducts s where
   AreProducts (NP I '[]) = '[]

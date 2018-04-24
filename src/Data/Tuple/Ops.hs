@@ -1,4 +1,5 @@
 {-# LANGUAGE GADTs                  #-}
+{-# LANGUAGE TypeFamilies           #-}
 {-# LANGUAGE TypeOperators          #-}
 {-# LANGUAGE DataKinds              #-}
 {-# LANGUAGE KindSignatures         #-}
@@ -10,7 +11,6 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE ConstraintKinds        #-}
 {-# LANGUAGE RankNTypes             #-}
-{-# LANGUAGE TypeFamilyDependencies #-}
 module Data.Tuple.Ops
   ( -- * Selection
     sel
@@ -607,7 +607,7 @@ type family Relation' n m i j where
   Relation' n m 0 j = n :<= m
   Relation' n m i j = Relation' n m (i - 1) (j - 1)
 
-type family ToTuple s = t | t -> s where
+type family ToTuple s where
   ToTuple (NP I '[a, b]) = (a,b)
   ToTuple (NP I '[a, b, c]) = (a,b,c)
   ToTuple (NP I '[a, b, c, d]) = (a,b,c,d)

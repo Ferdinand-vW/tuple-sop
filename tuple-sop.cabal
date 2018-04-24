@@ -2,10 +2,10 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: e77c3d45ec479b07d6f2ba048fdb280ab02003570f446ec3d3e7e5e17b599f90
+-- hash: e9216b4d98caa189d01686d7485d17c822108d2b212f55547a5b5991779e8295
 
 name:           tuple-sop
-version:        0.2.0.0
+version:        0.2.0.1
 synopsis:       functions on n-ary tuples using generics-sop
 description:    Exports various functions on n-ary tuples. This library uses generics-sop to create a generic representation of n-ary product types. To regain type inference, the exported functions work only on tuples with at most 10 components.
 category:       Data

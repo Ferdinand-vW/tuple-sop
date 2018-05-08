@@ -48,6 +48,7 @@ module Data.Tuple.Ops
   , consT
   , snocT
   , appendT
+  , reverseT
   , initT
   , tailT
   -- * Deletion
@@ -79,7 +80,7 @@ class Select s t where
   -- 'd'
   sel :: s -> t
 
-instance (GenericNP s, GSelect (RepNP s) t) => Select s t where
+instance (GenericNP s rep_s, GSelect (RepNP s) t) => Select s t where
   sel s = gsel (from_np s)
 
 class GSelect s t where
@@ -98,7 +99,7 @@ class SelectN s (n :: Nat) t | s n -> t where
   -- False
   selN :: s -> Proxy n -> t
 
-instance (GenericNP s, GSelectN (RepNP s) (Lit n) t) => SelectN s n t where
+instance (GenericNP s rep_s, GSelectN (RepNP s) (Lit n) t) => SelectN s n t where
   selN s Proxy = gselN (from_np s) (Proxy :: Proxy (Lit n))
 
 class GSelectN s (n :: Nat') t | s n -> t where
@@ -146,7 +147,7 @@ sel10 s = selN s (Proxy :: Proxy 9)
 lastT :: forall s n t. (LengthT s ~ n, SelectN s (n - 1) t) => s -> t
 lastT s = selN s (Proxy :: Proxy (n - 1))
 
-class TailT s t where
+class TailT s t | s -> t where
   -- | Takes an n-ary tuple and returns the same tuple minus the first element.
   --
   -- >>> tailT (1,2,3,4)
@@ -158,7 +159,7 @@ class TailT s t where
   -- Couldn't match type `2 ':<= 3' with `2 ':>= 3'
   tailT :: s -> t
 
-instance (GenericNP s, GenericNP t, LEQ (LengthT s) 3, GTailT (RepNP s) (RepNP t)) => TailT s t where
+instance (GenericNP s rep_s, GenericNP t rep_t, LEQ (LengthT s) 3, GTailT rep_s rep_t) => TailT s t where
   tailT = to_np . gtailT . from_np
   
 class GTailT s t | s -> t where
@@ -167,7 +168,7 @@ class GTailT s t | s -> t where
 instance GTailT (NP I (a ': xs)) (NP I xs) where
   gtailT (_ :* xs) = xs
 
-class InitT s t where
+class InitT s t | s -> t where
   -- | Takes an n-ary tuple and returns the same tuple minus the first element.
   --
   -- >>> initT (1,2,3,4)
@@ -179,7 +180,7 @@ class InitT s t where
   -- Couldn't match type `2 ':<= 3' with `2 ':>= 3'
   initT :: s -> t
 
-instance (GenericNP s, GenericNP t, LEQ (LengthT s) 3, GInitT (RepNP s) (RepNP t)) => InitT s t where
+instance (GenericNP s rep_s, GenericNP t rep_t, LEQ (LengthT s) 3, GInitT rep_s rep_t) => InitT s t where
   initT = to_np . ginitT . from_np
 
 class GInitT s t | s -> t where
@@ -202,10 +203,10 @@ class App f s t where
   -- (True,6)
   --
   -- One may also use `appPoly`, which doesn't require specifying the result type. However it can only apply functions
-  -- to the first element of an n-ary tuple. For application to other elements use `appPolyN` or one of its derivatives.
+  -- to the first element of an n-ary tuple.
   app :: f -> s -> t
 
-instance (GenericNP s, GenericNP t, Applicable f (RepNP s) ~ app, GApp f app (RepNP s) (RepNP t)) => App f s t where
+instance (GenericNP s rep_s, GenericNP t rep_t, Applicable f rep_s ~ app, GApp f app rep_s rep_t) => App f s t where
   app f s = to_np $ gapp f (Proxy :: Proxy app) (from_np s)
 
 class GApp f (app :: [Bool]) s t | f s app -> t where
@@ -227,7 +228,7 @@ instance GApp f app (NP I xs) (NP I xs') => GApp f ('False ': app) (NP I (c ': x
 appPoly :: App (Poly a b) s t => (a -> b) -> s -> t
 appPoly f s = app (poly f) s
   
-class AppN f s (n :: Nat) t where
+class AppN f s (n :: Nat) t | f s n -> t where
   -- | Applies a function to the element at index @n@ in an n-ary tuple.
   --
   -- >>> appN not (Proxy 2) (False,True,False)
@@ -239,14 +240,14 @@ class AppN f s (n :: Nat) t where
   -- (5,'c',"False")
   appN :: f -> s -> Proxy n -> t
 
-instance (GenericNP s, GenericNP t, GAppN (Poly a b) (RepNP s) (Lit n) (RepNP t)) => AppN (a -> b) s n t where
-  appN f s Proxy = to_np $ gappN (poly f) (from_np s) (Proxy :: Proxy (Lit n))
+instance (GenericNP s rep_s, GenericNP t rep_t, GAppN f rep_s (Lit n) rep_t) => AppN f s n t where
+  appN f s Proxy = to_np $ gappN f (from_np s) (Proxy :: Proxy (Lit n))
 
 class GAppN f s (n :: Nat') t | f s n -> t where
   gappN :: f -> s -> Proxy n -> t
 
-instance (a ~ a', b ~ b') => GAppN (Poly a b) (NP I (a' ': xs)) Z' (NP I (b' ': xs)) where
-  gappN (Poly f) (I a :* xs) _ = I (f a) :* xs
+instance (a ~ a', b ~ b') => GAppN (a -> b) (NP I (a' ': xs)) Z' (NP I (b' ': xs)) where
+  gappN f (I a :* xs) _ = I (f a) :* xs
 
 instance GAppN f (NP I xs) n (NP I xs') => GAppN f (NP I (c ': xs)) (S' n) (NP I (c ': xs')) where
   gappN f (c :* xs) _ = c :* gappN f xs (Proxy :: Proxy n)
@@ -276,21 +277,21 @@ app9 f s = appN f s (Proxy :: Proxy 8)
 app10 :: AppN f s 9 t => f -> s -> t
 app10 f s = appN f s (Proxy :: Proxy 9)
 
-class MapT f s t where
+class MapT f s t | f s -> t where
   -- | Maps a monomorphic function over each element in an n-ary tuple that matches the type of the argument of the function
   --
-  -- >>> map not (True,5,'c',False)
-  -- (False,5,'c',True)
+  -- >>> mapT not (True,'c',False)
+  -- (False,'c',True)
   --
   -- Sometimes it is necessary to specify the result type.
   --
-  -- >>> map (+1) (5,6,7,False) :: (Integer,Integer,Integer,Bool)
+  -- >>> mapT (+1) (5,6,7,False) :: (Integer,Integer,Integer,Bool)
   -- (6,7,8,False)
   --
-  -- Using `mapPolyT` this is not necessary, but this comes with a limitation.
+  -- Using `mapPolyT` this is not necessary. However, to use `mapPolyT` the tuple may only contains elements of a single type.
   mapT :: f -> s -> t
 
-instance (GenericNP s, GenericNP t, Applicable f (RepNP s) ~ app, GMapT f app (RepNP s) (RepNP t)) => MapT f s t where
+instance (GenericNP s rep_s, GenericNP t rep_t, Applicable f rep_s ~ app, GMapT f app rep_s rep_t) => MapT f s t where
   mapT f s = to_np $ gmapT f (Proxy :: Proxy app) (from_np s)
 
 class GMapT f (app :: [Bool]) s t | f app s -> t where
@@ -318,14 +319,14 @@ instance GMapT f apps (NP I xs) (NP I xs') => GMapT f ('False ': apps) (NP I (c 
 mapPolyT :: MapT (Poly a b) s t => (a -> b) -> s -> t
 mapPolyT f s = mapT (poly f) s
 
-class ConsT a s t where
+class ConsT a s t | a s -> t where
   -- | Adds an element to the head of an n-ary tuple
   --
   -- >>> consT 5 (True,'c')
   -- (5,True,'c')
   consT :: a -> s -> t
 
-instance (GenericNP s, GenericNP t, GConsT a (RepNP s) (RepNP t)) => ConsT a s t where
+instance (GenericNP s rep_s, GenericNP t rep_t, GConsT a rep_s rep_t) => ConsT a s t where
   consT a s = to_np $ gconsT a (from_np s)
 
 class GConsT a s t | a s -> t where
@@ -334,14 +335,14 @@ class GConsT a s t | a s -> t where
 instance GConsT a (NP I xs) (NP I (a ': xs)) where
   gconsT a xs = I a :* xs
 
-class SnocT a s t where
+class SnocT a s t | a s -> t where
   -- | Adds an element to the back of an n-ary tuple
   --
   -- >>> snocT 5 (True,'c')
   -- (True,'c',5)
   snocT :: a -> s -> t
 
-instance (GenericNP s, GenericNP t, GSnocT a (RepNP s) (RepNP t)) => SnocT a s t where
+instance (GenericNP s rep_s, GenericNP t rep_t, GSnocT a rep_s rep_t) => SnocT a s t where
   snocT a s = to_np $ gsnocT a (from_np s)
 
 class GSnocT a s t | a s -> t where
@@ -360,7 +361,7 @@ class Delete s t where
   -- ('c',False)
   del :: s -> t
 
-instance (GenericNP s, GenericNP t, LEQ (LengthT s) 3, GDelete (RepNP s) (RepNP t)) => Delete s t where
+instance (GenericNP s rep_s, GenericNP t rep_t, LEQ (LengthT s) 3, GDelete rep_s rep_t) => Delete s t where
   del = to_np . gdel . from_np
 
 class GDelete s t where
@@ -372,14 +373,14 @@ instance GDelete (NP I (a ': xs)) (NP I xs) where
 instance GDelete (NP I xs) (NP I xs') => GDelete (NP I (a ': xs)) (NP I (a ': xs')) where
   gdel (a :* xs) = a :* gdel xs
 
-class DeleteN s (n :: Nat) t where
+class DeleteN s (n :: Nat) t | s n -> t where
   -- | Deletes an element specified by an index in an n-ary tuple
   --
   -- >>> delN ('c',False,5) (Proxy :: Proxy 1)
   -- ('c',5)
   delN :: s -> Proxy n -> t
 
-instance (GenericNP s, GenericNP t, LEQ (LengthT s) 3, GDeleteN (RepNP s) (Lit n) (RepNP t)) => DeleteN s n t where
+instance (GenericNP s rep_s, GenericNP t rep_t, LEQ (LengthT s) 3, GDeleteN rep_s (Lit n) rep_t) => DeleteN s n t where
   delN s Proxy = to_np $ gdelN (from_np s) (Proxy :: Proxy (Lit n))
 
 class GDeleteN s (n :: Nat') t | s n -> t where
@@ -417,14 +418,14 @@ del10 :: DeleteN s 9 t => s -> t
 del10 s = delN s (Proxy :: Proxy 9)
 
 -- Currently broken. So not exported until I can properly fix it.
-class FlattenT s t where
+class FlattenT s t | s -> t where
   -- | Compresses sub-tuples into their paren-tuples
   --
   -- >>> flattenT (5,6,(1,2,(3,4)))
   --  
   flattenT :: s -> t
 
-instance (GenericNP s, GenericNP t, GFlattenT (AreProducts (RepNP s)) (RepNP s) (RepNP t)) => FlattenT s t where
+instance (GenericNP s rep_s, GenericNP t rep_t, GFlattenT (AreProducts rep_s) rep_s rep_t) => FlattenT s t where
   flattenT = to_np . gflattenT (Proxy :: Proxy (AreProducts (RepNP s))) . from_np
   
 class GFlattenT (ps :: [Bool]) s t | ps s -> t where
@@ -433,21 +434,21 @@ class GFlattenT (ps :: [Bool]) s t | ps s -> t where
 instance GFlattenT '[] (NP I '[]) (NP I '[]) where
   gflattenT _ = id
 
-instance (GenericNP x, GFlattenT (AreProducts (RepNP x)) (RepNP x) x', GFlattenT ps (NP I xs) (NP I xs'), GAppendT x' (NP I xs') (NP I xss)) => GFlattenT ('True ': ps) (NP I (x ': xs)) (NP I xss) where
-  gflattenT _ (I x :* xs) = case (gflattenT (Proxy :: Proxy (AreProducts (RepNP x))) $ from_np x, gflattenT (Proxy :: Proxy ps) xs) of
+instance (GenericNP x rep_x, GFlattenT (AreProducts rep_x) rep_x x', GFlattenT ps (NP I xs) (NP I xs'), GAppendT x' (NP I xs') (NP I xss)) => GFlattenT ('True ': ps) (NP I (x ': xs)) (NP I xss) where
+  gflattenT _ (I x :* xs) = case (gflattenT (Proxy :: Proxy (AreProducts rep_x)) $ from_np x, gflattenT (Proxy :: Proxy ps) xs) of
     (x', xs') -> gappendT x' xs'
 
 instance GFlattenT ps (NP I xs) (NP I xs') => GFlattenT ('False ': ps) (NP I (x ': xs)) (NP I (x ': xs')) where
   gflattenT _ (x :* xs) = x :* gflattenT (Proxy :: Proxy ps) xs
 
-class AppendT s r t where
+class AppendT s r t | s r -> t where
   -- | Appends two n-ary tuple into one larger tuple
   --
   -- >>> appendT (5,'c') ('d',False)
   -- (5,'c','d',False)
   appendT :: s -> r -> t
 
-instance (GenericNP s, GenericNP r, GenericNP t, GAppendT (RepNP s) (RepNP r) (RepNP t)) => AppendT s r t where
+instance (GenericNP s rep_s, GenericNP r rep_r, GenericNP t rep_t, GAppendT rep_s rep_r rep_t) => AppendT s r t where
   appendT s r = to_np $ gappendT (from_np s) (from_np r)
 
 class GAppendT s r t | s r -> t where
@@ -459,17 +460,36 @@ instance GAppendT (NP I '[]) ys ys where
 instance GAppendT (NP I xs) ys (NP I zs) => GAppendT (NP I (x ': xs)) ys (NP I (x ': zs)) where
   gappendT (x :* xs) ys = x :* gappendT xs ys
 
-class UnCurryT s t b | s -> b where
+class ReverseT s t | s -> t where
+  -- | Reverses the order of elements in an n-ary tuple
+  --
+  -- >>> reverseT (1,2,3,4)
+  -- (4,3,2,1)
+  reverseT :: s -> t
+
+instance (GenericNP s rep_s, GenericNP t rep_t, GReverseT rep_s (NP I '[]) rep_t) => ReverseT s t where
+  reverseT s = to_np $ greverseT (from_np s) (Nil :: NP I '[])
+
+class GReverseT s r t | s r -> t where
+  greverseT :: s -> r -> t
+
+instance GReverseT (NP I '[]) xs xs where
+  greverseT _ = id
+
+instance GReverseT (NP I xs) (NP I (x ': ys)) zs => GReverseT (NP I (x ': xs)) (NP I ys) zs where
+  greverseT (x :* xs) ys = greverseT xs (x :* ys)
+
+class UnCurryT s t b | s t -> b where
   -- | Converts a curried function to a function that works on n-ary tuples
   -- 
   -- >>> uncurryT (\a b c -> a + b + c) (1,2,3)
   -- 6
   uncurryT :: s -> t -> b
 
-instance (GenericNP t, GUnCurryT s (RepNP t) b) => UnCurryT s t b where
+instance (GenericNP t rep_t, GUnCurryT s rep_t b) => UnCurryT s t b where
   uncurryT f t = guncurryT f (from_np t)
 
-class GUnCurryT s t b | s -> b where
+class GUnCurryT s t b | s t -> b where
   guncurryT :: s -> t -> b
 
 instance b ~ b' => GUnCurryT b (NP I '[]) b' where
@@ -499,12 +519,12 @@ instance (b ~ b', ys ~ Reverse xs '[], GReverse (NP I xs) (NP I '[]) (NP I ys)) 
 instance (f ~ (NP I ys -> c), Head (Diff ys (Reverse xs '[])) ~ a, ToFun (Tail (Diff ys (Reverse xs '[]))) c ~ b, GCurryT f (NP I (a ': xs)) ps b) => GCurryT f (NP I xs) (a ': ps) (a -> b) where
   gcurryT t xs _ = \a -> gcurryT t (I a :* xs) (Proxy :: Proxy ps)
 
-class GenericNP s where
+class RepNP s ~ rep => GenericNP s rep | s -> rep, rep -> s where
   type RepNP s :: *
-  from_np :: s -> RepNP s
-  to_np :: RepNP s -> s
+  from_np :: RepNP s ~ rep => s -> rep
+  to_np :: RepNP s ~ rep => rep -> s
 
-instance (Generic s, Rep s ~ SOP I '[xs], ToTuple (RepNP s) ~ s) => GenericNP s where
+instance (Generic s, Rep s ~ SOP I '[xs], RepNP s ~ rep, ToTuple rep ~ s) => GenericNP s rep where
   type RepNP s = ToNP (Rep s)
   from_np s = gtoNP $ from s
   to_np p = to $ gfromNP p
@@ -524,7 +544,7 @@ class FuncToGen s t | s -> t where
 instance {-# OVERLAPPING #-} b ~ b' => FuncToGen b b' where
   funcToGen = id
 
-instance {-# OVERLAPPING #-} (GenericNP a, RepNP a ~ g, FuncToGen b b') => FuncToGen (a -> b) (g -> b') where
+instance {-# OVERLAPPING #-} (GenericNP a rep_a, rep_a ~ g, FuncToGen b b') => FuncToGen (a -> b) (g -> b') where
   funcToGen f = \s -> funcToGen (f $ to_np s)
 
 class GReverse s d t | s d -> t where

@@ -2,6 +2,7 @@
 {-# LANGUAGE TypeFamilies           #-}
 {-# LANGUAGE TypeOperators          #-}
 {-# LANGUAGE DataKinds              #-}
+{-# LANGUAGE PolyKinds              #-}
 {-# LANGUAGE KindSignatures         #-}
 {-# LANGUAGE FlexibleInstances      #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
@@ -31,6 +32,7 @@ module Data.Tuple.Ops
   , app
   , appPoly
   , appN
+  , appF
   , mapT
   , mapPolyT
   -- ** convenience functions 
@@ -51,6 +53,19 @@ module Data.Tuple.Ops
   , reverseT
   , initT
   , tailT
+  -- * Insertion
+  , ins
+  , insN
+  , ins1
+  , ins2
+  , ins3
+  , ins4
+  , ins5
+  , ins6
+  , ins7
+  , ins8
+  , ins9
+  , ins10
   -- * Deletion
   , del
   , delN
@@ -65,6 +80,9 @@ module Data.Tuple.Ops
   , del8
   , del9
   , del10
+  -- * Folding
+  , foldlT
+  , foldrT
   -- * Currying
   , uncurryT
   , curryT) where
@@ -277,6 +295,21 @@ app9 f s = appN f s (Proxy :: Proxy 8)
 app10 :: AppN f s 9 t => f -> s -> t
 app10 f s = appN f s (Proxy :: Proxy 9)
 
+class AppF f s t | f s -> t where
+  appF :: f -> s -> t
+
+instance (GenericNP s rep_s, GAppF f rep_s t) => AppF f s t where
+  appF f = gappF f . from_np
+
+class GAppF f s t | f s -> t where
+  gappF :: f -> s -> t
+
+instance b ~ b' => GAppF b (NP I '[]) b' where
+  gappF f Nil = f
+
+instance (a ~ a', GAppF b (NP I xs) c) => GAppF (a -> b) (NP I (a' ': xs)) c where
+  gappF f (I a :* xs) = gappF (f a) xs
+
 class MapT f s t | f s -> t where
   -- | Maps a monomorphic function over each element in an n-ary tuple that matches the type of the argument of the function
   --
@@ -354,6 +387,85 @@ instance GSnocT a (NP I '[]) (NP I '[a]) where
 instance GSnocT a (NP I xs) (NP I xs') => GSnocT a (NP I (b ': xs)) (NP I (b ': xs')) where
   gsnocT a (b :* xs) = b :* gsnocT a xs
 
+class Insert a s t where
+  -- | Inserts an element into an n-ary tuple. Its position is determined by the target type
+  --
+  -- >>> ins 5 ('c', False) :: (Char, Integer, Bool)
+  -- ('c',5,False)
+  --
+  -- An element will only be inserted at a specific position if:
+  --
+  -- * The element type matches the component type
+  -- * The tail of the tuple remains well-typed
+  --
+  -- >>> ins 5 ('c',1,False) :: (Char, Integer, Bool, Integer)
+  -- ('c',1,False,5)
+  --
+  -- In the above example, inserting 5 after 'c' would make the tail of the tuple have type (Integer, Bool) when the target type asks for (Bool,Integer)
+  --
+  -- When attempting to insert an element before or after a component of the same type the element is always inserted in front
+  --
+  -- >>> ins 5 ('c',1,False) :: (Char, Integer, Integer, Bool)
+  -- ('c',5,1,False)
+  ins :: a -> s -> t
+
+instance (GenericNP s rep_s, GenericNP t rep_t, GInsert (InsLoc a rep_s rep_t) a rep_s rep_t) => Insert a s t where
+  ins a = to_np . gins (Proxy :: Proxy (InsLoc a rep_s rep_t)) a . from_np
+
+class GInsert loc a s t where
+  gins :: Proxy loc -> a -> s -> t
+
+instance {-# OVERLAPPING #-} GInsert Z' a (NP I xs) (NP I (a ': xs)) where
+  gins _ a s = I a :* s
+
+instance {-# OVERLAPPABLE #-} (b ~ c, GInsert n a (NP I xs) (NP I xs')) => GInsert (S' n) a (NP I (b ': xs)) (NP I (c ': xs')) where
+  gins _ a (b :* xs) = b :* gins (Proxy :: Proxy n) a xs
+
+
+class InsertN a s n t | a s n -> t where
+  -- | Inserts an element at an index specified location into an n-ary tuple
+  --
+  -- >>> insN 5 ('c',1,False) (Proxy :: Proxy 1)
+  -- ('c',5,1,False)
+  insN :: a -> s -> Proxy n -> t
+
+instance (GenericNP s rep_s, GenericNP t rep_t, GInsertN a rep_s (Lit n) rep_t) => InsertN a s n t where
+  insN a s p = to_np $ ginsN a (from_np s) (Proxy :: Proxy (Lit n))
+
+class GInsertN a s n t | a s n -> t where
+  ginsN :: a -> s -> Proxy n -> t
+
+instance GInsertN a (NP I xs) Z' (NP I (a ': xs)) where
+  ginsN a s _ = I a :* s
+
+instance GInsertN a (NP I xs) n (NP I xs') => GInsertN a (NP I (b ': xs)) (S' n) (NP I (b ': xs')) where
+  ginsN a (b :* s) _ = b :* ginsN a s (Proxy :: Proxy n)
+
+-- | Inserts an element in head position into an n-ary tuple
+--
+-- >>> ins1 5 ('c',1,False)
+-- (5,'c',1,False)
+ins1 :: InsertN a s 0 t => a -> s -> t
+ins1 a s = insN a s (Proxy :: Proxy 0)
+ins2 :: InsertN a s 1 t => a -> s -> t
+ins2 a s = insN a s (Proxy :: Proxy 1) 
+ins3 :: InsertN a s 2 t => a -> s -> t
+ins3 a s = insN a s (Proxy :: Proxy 2) 
+ins4 :: InsertN a s 3 t => a -> s -> t
+ins4 a s = insN a s (Proxy :: Proxy 3) 
+ins5 :: InsertN a s 4 t => a -> s -> t
+ins5 a s = insN a s (Proxy :: Proxy 4) 
+ins6 :: InsertN a s 5 t => a -> s -> t
+ins6 a s = insN a s (Proxy :: Proxy 5) 
+ins7 :: InsertN a s 6 t => a -> s -> t
+ins7 a s = insN a s (Proxy :: Proxy 6) 
+ins8 :: InsertN a s 7 t => a -> s -> t
+ins8 a s = insN a s (Proxy :: Proxy 7) 
+ins9 :: InsertN a s 8 t => a -> s -> t
+ins9 a s = insN a s (Proxy :: Proxy 8) 
+ins10 :: InsertN a s 9 t => a -> s -> t
+ins10 a s = insN a s (Proxy :: Proxy 9) 
+
 class Delete s t where
   -- | Deletes the first element in an n-ary tuple whose type does not exist in the target type
   --
@@ -416,6 +528,39 @@ del9 :: DeleteN s 8 t => s -> t
 del9 s = delN s (Proxy :: Proxy 8)
 del10 :: DeleteN s 9 t => s -> t
 del10 s = delN s (Proxy :: Proxy 9)
+
+class FoldLeft f s t | f s -> t where
+  foldlT :: f -> t -> s -> t
+
+instance (GenericNP s rep_s, GFoldLeft f rep_s t) => FoldLeft f s t where
+  foldlT f b = gfoldlT f b . from_np
+
+class GFoldLeft f s t | f s -> t where
+  gfoldlT :: f -> t -> s -> t
+
+instance GFoldLeft (b -> a -> b) (NP I '[]) b where
+  gfoldlT f b Nil = b
+
+instance (a ~ a', GFoldLeft (b -> a -> b) (NP I xs) b) => GFoldLeft (b -> a -> b) (NP I (a' ': xs)) b where
+  gfoldlT f b (I a :* xs) = gfoldlT f (f b a) xs
+
+class FoldRight f s t | f s -> t where
+  foldrT :: f -> t -> s -> t
+
+instance (GenericNP s rep_s, GFoldRight f rep_s t) => FoldRight f s t where
+  foldrT f b = gfoldrT f b . from_np
+
+class GFoldRight f s t | f s -> t where
+  gfoldrT :: f -> t -> s -> t
+
+instance GFoldRight (a -> b -> b) (NP I '[]) b where
+  gfoldrT f b Nil = b
+
+instance (a ~ a', b ~ b', GFoldRight (a -> b' -> b) (NP I xs) b) => GFoldRight (a -> b' -> b) (NP I (a' ': xs)) b where
+  gfoldrT f b (I a :* xs) = f a $ gfoldrT f b xs
+
+class FoldLeftF f s t | f s -> t where
+  foldlF :: f -> s -> t
 
 -- Currently broken. So not exported until I can properly fix it.
 class FlattenT s t | s -> t where
@@ -594,6 +739,15 @@ data Poly a b where
 poly :: (a -> b) -> Poly a b
 poly = Poly
 
+type family InsLoc a s t :: Nat' where
+  InsLoc a (NP I (b ': s)) (NP I (a ': t)) = If (AreEqual (NP I (b ': s)) (NP I t)) Z' (S' (InsLoc a (NP I s) (NP I t)))
+  InsLoc a (NP I (b ': s)) (NP I (b ': t)) = S' (InsLoc a (NP I s) (NP I t))
+  InsLoc a (NP I '[]) (NP I '[a]) = Z'
+
+type family If b (l :: k) (r :: k) :: k where
+  If 'True l r = l
+  If 'False l r = r
+
 type family Head xs where
   Head (x ': xs) = x
 
@@ -613,6 +767,11 @@ type family ToFun xs r where
   ToFun (a ': xs) f = a -> ToFun xs f
   ToFun '[] (a -> b) = a -> ToFun '[] b
   ToFun '[] b = b
+
+type family AreEqual s t where
+  AreEqual (NP I (a ': s)) (NP I (a ': t)) = AreEqual (NP I s) (NP I t)
+  AreEqual (NP I (a ': s)) (NP I (b ': t)) = 'False
+  AreEqual s t = 'True
 
 data Rel = Nat :<= Nat | Nat :>= Nat
 

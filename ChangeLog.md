@@ -1,5 +1,9 @@
 # Changelog for tuple-sop
 
+## 0.3.1.0 -- 2018-06-24
+
+* Added insertion, folding and application functions.
+
 ## 0.3.0.0 -- 2018-05-08
 
 * Improved type inference. One minor breaking change in the use of mapT on polymorphic n-ary tuples.

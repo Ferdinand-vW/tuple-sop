@@ -12,6 +12,15 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE ConstraintKinds        #-}
 {-# LANGUAGE RankNTypes             #-}
+{-|
+This module exports various functions that work with n-ary tuples.
+
+Generally speaking all functions can be applied to tuples of different sizes.
+
+However, to improve type inference we have limited our implementation to only only work on tuples of at most size 10.
+
+For functions working with indexes we have also added some convenience functions to avoid usage of Proxy's.
+-}
 module Data.Tuple.Ops
   ( -- * Selection
     sel
@@ -296,6 +305,10 @@ app10 :: AppN f s 9 t => f -> s -> t
 app10 f s = appN f s (Proxy :: Proxy 9)
 
 class AppF f s t | f s -> t where
+  -- | Apply an n-ary function to an n-ary tuple. The function takes an argument for each component of the tuple in left-to-right order.
+  --
+  -- >>> appF (\a b c -> if a then b else c) (False,1,2)
+  -- 2
   appF :: f -> s -> t
 
 instance (GenericNP s rep_s, GAppF f rep_s t) => AppF f s t where
@@ -423,7 +436,7 @@ instance {-# OVERLAPPABLE #-} (b ~ c, GInsert n a (NP I xs) (NP I xs')) => GInse
 
 
 class InsertN a s n t | a s n -> t where
-  -- | Inserts an element at an index specified location into an n-ary tuple
+  -- | Inserts an element at an index specified position into an n-ary tuple
   --
   -- >>> insN 5 ('c',1,False) (Proxy :: Proxy 1)
   -- ('c',5,1,False)
@@ -530,6 +543,10 @@ del10 :: DeleteN s 9 t => s -> t
 del10 s = delN s (Proxy :: Proxy 9)
 
 class FoldLeft f s t | f s -> t where
+  -- | Fold left for n-ary tuples
+  --
+  -- >>> foldlT (-) 0 (4,3,2,1)
+  -- -10
   foldlT :: f -> t -> s -> t
 
 instance (GenericNP s rep_s, GFoldLeft f rep_s t) => FoldLeft f s t where
@@ -545,6 +562,10 @@ instance (a ~ a', GFoldLeft (b -> a -> b) (NP I xs) b) => GFoldLeft (b -> a -> b
   gfoldlT f b (I a :* xs) = gfoldlT f (f b a) xs
 
 class FoldRight f s t | f s -> t where
+  -- | Fold right for n-ary tuples
+  --
+  -- >>> foldrT (-) 0 (4,3,2,1)
+  -- 2
   foldrT :: f -> t -> s -> t
 
 instance (GenericNP s rep_s, GFoldRight f rep_s t) => FoldRight f s t where
